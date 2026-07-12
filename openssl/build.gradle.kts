@@ -57,6 +57,9 @@ val generateOpensslDef by tasks.registering {
 
             compilerOpts.macos_arm64 = -I${macosArm64LibPath.dir("include").asFile.absolutePath} 
             libraryPaths.macos_arm64 = ${macosArm64LibPath.dir("lib").asFile.absolutePath}
+
+            compilerOpts.linux_x64 = -I${linuxX64LibPath.dir("include").asFile.absolutePath} 
+            libraryPaths.linux_x64 = ${linuxX64LibPath.dir("lib").asFile.absolutePath}
             """.trimIndent()
         )
     }
