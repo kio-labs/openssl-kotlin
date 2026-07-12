@@ -1,0 +1,10 @@
+# 
+prefix=/home/runner/work/openssl-kotlin/openssl-kotlin/openssl/build/openssl-install
+exec_prefix=${prefix}
+libdir=${exec_prefix}/lib64
+includedir=${prefix}/include
+
+Name: OpenSSL
+Description: Secure Sockets Layer and cryptography libraries and tools
+Version: 4.0.1
+Requires: libssl libcrypto
