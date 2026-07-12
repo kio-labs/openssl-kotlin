@@ -1,0 +1,45 @@
+name: Create LinuxX64 lib
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  create-pr:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Build openssl
+        run: |
+          ./gradlew :openssl:buildAndCopyLinuxX64Lib
+
+      - name: Create branch and commit
+        env:
+          BRANCH_NAME: automation/update-${{ github.run_id }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git checkout -b "$BRANCH_NAME"
+          git add openssl/lib
+          git commit -m "build linuxX64 lib"
+          git push origin "$BRANCH_NAME"
+
+      - name: Create pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH_NAME: automation/update-${{ github.run_id }}
+        run: |
+          gh pr create \
+            --base main \
+            --head "$BRANCH_NAME" \
+            --title "chore: update generated files" \
+            --body "This PR was created automatically by GitHub Actions."
