@@ -3,44 +3,60 @@ plugins {
     alias(libs.plugins.maven.publish)
 }
 
-val liburingDir = rootProject.layout.projectDirectory.dir("external/liburing")
-val liburingInstallDir = layout.projectDirectory.dir("build/liburing-install")
+val liburingDir = rootProject.layout.projectDirectory.dir("external/openssl")
+val libsslInstallDir = layout.projectDirectory.dir("build/openssl-install")
 
-val buildLiburing by tasks.registering(Exec::class) {
+val buildOpenssl by tasks.registering(Exec::class) {
     workingDir = liburingDir.asFile
 
     commandLine(
         "bash",
         "-lc",
         """
-        ./configure --prefix=${liburingInstallDir.asFile.absolutePath}
+        ./Configure --prefix=${libsslInstallDir.asFile.absolutePath}
         make -j$(nproc)
 
-        mkdir -p ${liburingInstallDir.asFile.absolutePath}/include
-        mkdir -p ${liburingInstallDir.asFile.absolutePath}/lib
-
-        cp -r src/include/* ${liburingInstallDir.asFile.absolutePath}/include/
-        cp src/liburing.a ${liburingInstallDir.asFile.absolutePath}/lib/
+        make install_sw
         """.trimIndent()
     )
 
-    outputs.dir(liburingInstallDir)
+    outputs.dir(libsslInstallDir)
 }
-val generatedUringDef = layout.buildDirectory.file("generated/cinterop/uring.def")
-val generateUringDef by tasks.registering {
-    dependsOn(buildLiburing)
-    outputs.file(generatedUringDef)
+
+val buildAndCopyLinuxX64Lib by tasks.registering(Copy::class) {
+    dependsOn(buildOpenssl)
+    from(libsslInstallDir.dir("include")) {
+        into("include")
+        include("openssl/**")
+    }
+
+    from(libsslInstallDir.dir("lib64")) {
+        into("lib")
+        include(
+            "libssl.a",
+            "libcrypto.a"
+        )
+    }
+
+    into(layout.projectDirectory.dir("lib/linuxX64"))
+}
+
+val generatedOpensslDef = layout.buildDirectory.file("generated/cinterop/openssl.def")
+val macosArm64LibPath = layout.projectDirectory.dir("lib/macosArm64")
+val linuxX64LibPath = layout.projectDirectory.dir("lib/linuxX64")
+val generateOpensslDef by tasks.registering {
+    outputs.file(generatedOpensslDef)
 
     doLast {
-        generatedUringDef.get().asFile.parentFile.mkdirs()
-        generatedUringDef.get().asFile.writeText(
+        generatedOpensslDef.get().asFile.parentFile.mkdirs()
+        generatedOpensslDef.get().asFile.writeText(
             """
-            headers = liburing.h
-            package = linux.uring
+            headers = openssl/ssl.h openssl/err.h
+            package = openssl
+            staticLibraries = libssl.a libcrypto.a
 
-            compilerOpts = -I${liburingInstallDir.dir("include").asFile.absolutePath} -I/usr/include -I/usr/include/x86_64-linux-gnu
-            staticLibraries = liburing.a
-            libraryPaths = ${liburingInstallDir.dir("lib").asFile.absolutePath}
+            compilerOpts.macos_arm64 = -I${macosArm64LibPath.dir("include").asFile.absolutePath} 
+            libraryPaths.macos_arm64 = ${macosArm64LibPath.dir("lib").asFile.absolutePath}
             """.trimIndent()
         )
     }
@@ -49,13 +65,13 @@ val generateUringDef by tasks.registering {
 kotlin {
     listOf(
         linuxX64(),
-        linuxArm64()
+        macosArm64()
     ).forEach {
         it.compilations.getByName("main") {
             cinterops {
-                val uring by creating {
-                    defFile(generateUringDef.map {
-                        generatedUringDef.get().asFile
+                val openssl by creating {
+                    defFile(generateOpensslDef.map {
+                        generatedOpensslDef.get().asFile
                     })
                 }
             }
@@ -63,8 +79,8 @@ kotlin {
     }
 }
 
-tasks.matching { it.name.startsWith("cinteropUring") }.configureEach {
-    dependsOn(generateUringDef)
+tasks.matching { it.name.startsWith("cinteropOpenssl") }.configureEach {
+    dependsOn(generateOpensslDef)
 }
 
 mavenPublishing {
@@ -72,9 +88,9 @@ mavenPublishing {
     publishToMavenCentral()
 
     pom {
-        name.set("io-uring-kotlin")
-        description.set("Kotlin Native klib for io-uring")
-        url.set("https://github.com/andannn/RaylibKt")
+        name.set("openssl-kotlin")
+        description.set("Kotlin Native klib for openssl")
+        url.set("https://github.com/openssl/openssl#build-and-install")
 
         licenses {
             license {
@@ -92,9 +108,9 @@ mavenPublishing {
         }
 
         scm {
-            url.set("https://github.com/kio-labs/io-uring-kotlin.git")
-            connection.set("scm:git:git://github.com/kio-labs/io-uring-kotlin.git")
-            developerConnection.set("scm:git:ssh://git@github.com/kio-labs/io-uring-kotlin.git")
+            url.set("https://github.com/kio-labs/openssl-kotlin.git")
+            developerConnection.set("scm:git:ssh://git@github.com/kio-labs/openssl-kotlin.git")
+            connection.set("scm:git:git://github.com/kio-labs/openssl-kotlin.git")
         }
     }
 }

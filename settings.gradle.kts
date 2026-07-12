@@ -24,3 +24,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "openssl-kotlin"
 include(":openssl")
+include(":openssl-example")
